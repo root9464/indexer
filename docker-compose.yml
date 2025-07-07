@@ -1,0 +1,325 @@
+services:
+  db:
+    image: postgres:13
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - app-network
+    ports:
+      - "${DB_EXTERNAL_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build: 
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    environment:
+      - AUTH_SERVICE_PORT=${AUTH_SERVICE_PORT}
+      - BOT_TOKEN=${BOT_TOKEN}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+      - GIN_MODE=${GIN_MODE}
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "${AUTH_SERVICE_PORT}:${AUTH_SERVICE_PORT}"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${AUTH_SERVICE_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  gifts-service:
+    build:
+      context: ./services/gifts-service
+      dockerfile: Dockerfile
+    image: gifts-service:latest
+    container_name: gifts-service
+    environment:
+      - API_ID=${API_ID}
+      - API_HASH=${API_HASH}
+      - BOT_TOKEN=${BOT_TOKEN}
+      - PHONE=${PHONE}
+      - GIFTS_SERVICE_PORT=${GIFTS_SERVICE_PORT}
+      - GIN_MODE=${GIN_MODE}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - SESSION_PATH=${SESSION_PATH}
+    ports:
+      - "${GIFTS_SERVICE_PORT}:${GIFTS_SERVICE_PORT}"
+    volumes:
+      - ./data/gifts-session:/root/data
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${GIFTS_SERVICE_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  data-service:
+    build: 
+      context: ./services/data-service
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    environment:
+      - DATA_SERVICE_PORT=${DATA_SERVICE_PORT}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+      - CH_HOST=${CH_HOST}
+      - CH_USER=${CH_USER}
+      - CH_PASSWORD=${CH_PASSWORD}
+      - CH_PORT=${CH_PORT}
+      - GIN_MODE=${GIN_MODE}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - BINANCE_API_URL=${BINANCE_API_URL}
+      - BACKDROPS_API_URL=${BACKDROPS_API_URL}
+      - TON_PRICE_CACHE_TTL=${TON_PRICE_CACHE_TTL}
+      - BACKDROP_CACHE_TTL=${BACKDROP_CACHE_TTL}
+      - RESULTS_CACHE_TTL=${RESULTS_CACHE_TTL}
+      - MARKETCAP_CACHE_TTL=${MARKETCAP_CACHE_TTL}
+      - TRENDS_CACHE_TTL=${TRENDS_CACHE_TTL}
+      - FLOOR_PRICE_CACHE_TTL=${FLOOR_PRICE_CACHE_TTL}
+    ports:
+      - "${DATA_SERVICE_PORT}:${DATA_SERVICE_PORT}"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${DATA_SERVICE_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bff:
+    build: 
+      context: ./services/bff
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    environment:
+      - BFF_PORT=${BFF_PORT}
+      - AUTH_SERVICE_URL=http://auth-service:${AUTH_SERVICE_PORT}
+      - GIFTS_SERVICE_URL=http://gifts-service:${GIFTS_SERVICE_PORT}
+      - DATA_SERVICE_URL=http://data-service:${DATA_SERVICE_PORT}
+      - BOT_SERVICE_URL=http://bot-service:${BOT_SERVICE_PORT}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+      - GIN_MODE=${GIN_MODE}
+      - GOMAXPROCS=${GOMAXPROCS}
+      - GOGC=${GOGC}
+      - MAX_IDLE_CONNS=${MAX_IDLE_CONNS}
+      - MAX_IDLE_CONNS_PER_HOST=${MAX_IDLE_CONNS_PER_HOST}
+      - IDLE_CONN_TIMEOUT=${IDLE_CONN_TIMEOUT}
+      - HTTP_CLIENT_TIMEOUT=${HTTP_CLIENT_TIMEOUT}
+      - CB_THRESHOLD=${CB_THRESHOLD}
+      - CB_TIMEOUT=${CB_TIMEOUT}
+      - RATE_LIMIT_CAPACITY=${RATE_LIMIT_CAPACITY}
+      - CACHE_MARKETCAP_TTL=${CACHE_MARKETCAP_TTL}
+      - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS}
+      - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS}
+      - DB_CONN_MAX_LIFETIME=${DB_CONN_MAX_LIFETIME}
+      - DB_CONN_MAX_IDLE_TIME=${DB_CONN_MAX_IDLE_TIME}
+    ports:
+      - "${BFF_PORT}:${BFF_PORT}"
+    depends_on:
+      - auth-service
+      - gifts-service
+      - data-service
+      - bot-service
+      - db
+    networks:
+      - app-network
+    restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 2.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BFF_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - DOMAIN=${DOMAIN}
+      - VITE_API_URL=${VITE_API_URL}
+      - REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
+      - BFF_PORT=${BFF_PORT}
+      # Caddy Configuration
+      - CADDY_EMAIL=${CADDY_EMAIL}
+      - CADDY_TLS_MODE=${CADDY_TLS_MODE}
+      - CADDY_GZIP=${CADDY_GZIP}
+      - CADDY_SECURITY_HEADERS=${CADDY_SECURITY_HEADERS}
+      - CADDY_CACHE_STATIC_MAX_AGE=${CADDY_CACHE_STATIC_MAX_AGE}
+      - CADDY_CACHE_HTML_MAX_AGE=${CADDY_CACHE_HTML_MAX_AGE}
+      - CADDY_PROXY_TIMEOUT=${CADDY_PROXY_TIMEOUT}
+      - CADDY_PROXY_DIAL_TIMEOUT=${CADDY_PROXY_DIAL_TIMEOUT}
+      - CADDY_HEALTH_CHECK_PATH=${CADDY_HEALTH_CHECK_PATH}
+      # Vite Development Configuration
+      - VITE_DEV_PORT=${VITE_DEV_PORT}
+      - VITE_DEV_HOST=${VITE_DEV_HOST}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS}
+      # Build Configuration
+      - VITE_BUILD_OUTDIR=${VITE_BUILD_OUTDIR}
+      - VITE_BUILD_ASSETSDIR=${VITE_BUILD_ASSETSDIR}
+      - VITE_BUILD_SOURCEMAP=${VITE_BUILD_SOURCEMAP}
+      - VITE_BUILD_MINIFY=${VITE_BUILD_MINIFY}
+      - VITE_BUILD_TARGET=${VITE_BUILD_TARGET}
+      - VITE_CHUNK_SIZE_WARNING_LIMIT=${VITE_CHUNK_SIZE_WARNING_LIMIT}
+      # App Configuration
+      - VITE_APP_TITLE=${VITE_APP_TITLE}
+      - VITE_APP_VERSION=${VITE_APP_VERSION}
+      # Caddy Advanced Configuration
+      - CADDY_AUTO_HTTPS=${CADDY_AUTO_HTTPS}
+      - CADDY_LOG_LEVEL=${CADDY_LOG_LEVEL}
+      - CADDY_ADMIN_LISTEN=${CADDY_ADMIN_LISTEN}
+      - CADDY_HTTP_PORT=${CADDY_HTTP_PORT}
+      - CADDY_HTTPS_PORT=${CADDY_HTTPS_PORT}
+      - CADDY_TLS_PROTOCOLS=${CADDY_TLS_PROTOCOLS}
+      - CADDY_OCSP_STAPLING=${CADDY_OCSP_STAPLING}
+      - CADDY_MUST_STAPLE=${CADDY_MUST_STAPLE}
+      # Security Headers
+      - CADDY_HSTS_MAX_AGE=${CADDY_HSTS_MAX_AGE}
+      - CADDY_HSTS_INCLUDE_SUBDOMAINS=${CADDY_HSTS_INCLUDE_SUBDOMAINS}
+      - CADDY_HSTS_PRELOAD=${CADDY_HSTS_PRELOAD}
+      - CADDY_FRAME_OPTIONS=${CADDY_FRAME_OPTIONS}
+      - CADDY_CONTENT_TYPE_OPTIONS=${CADDY_CONTENT_TYPE_OPTIONS}
+      - CADDY_REFERRER_POLICY=${CADDY_REFERRER_POLICY}
+      # Compression Configuration
+      - CADDY_GZIP_LEVEL=${CADDY_GZIP_LEVEL}
+      - CADDY_COMPRESSION_TYPES=${CADDY_COMPRESSION_TYPES}
+      # Proxy Configuration
+      - CADDY_REVERSE_PROXY_RETRIES=${CADDY_REVERSE_PROXY_RETRIES}
+      - CADDY_REVERSE_PROXY_TRY_DURATION=${CADDY_REVERSE_PROXY_TRY_DURATION}
+      - CADDY_REVERSE_PROXY_TRY_INTERVAL=${CADDY_REVERSE_PROXY_TRY_INTERVAL}
+      - CADDY_REVERSE_PROXY_HEALTH_INTERVAL=${CADDY_REVERSE_PROXY_HEALTH_INTERVAL}
+      - CADDY_REVERSE_PROXY_HEALTH_TIMEOUT=${CADDY_REVERSE_PROXY_HEALTH_TIMEOUT}
+      # Static File Serving
+      - CADDY_FILE_SERVER_HIDE=${CADDY_FILE_SERVER_HIDE}
+      - CADDY_FILE_SERVER_INDEX=${CADDY_FILE_SERVER_INDEX}
+      - CADDY_FILE_SERVER_BROWSE=${CADDY_FILE_SERVER_BROWSE}
+      - CADDY_FILE_SERVER_PRECOMPRESSED=${CADDY_FILE_SERVER_PRECOMPRESSED}
+      # Rate Limiting
+      - CADDY_RATE_LIMIT_ZONE=${CADDY_RATE_LIMIT_ZONE}
+      - CADDY_RATE_LIMIT_WINDOW=${CADDY_RATE_LIMIT_WINDOW}
+      - CADDY_RATE_LIMIT_REQUESTS=${CADDY_RATE_LIMIT_REQUESTS}
+      - CADDY_RATE_LIMIT_BURST=${CADDY_RATE_LIMIT_BURST}
+      # Docker Build Configuration
+      - DOCKER_BUILDKIT=${DOCKER_BUILDKIT}
+      - DOCKER_FRONTEND_BUILD_ARGS=${DOCKER_FRONTEND_BUILD_ARGS}
+      - DOCKER_FRONTEND_TARGET=${DOCKER_FRONTEND_TARGET}
+      - DOCKER_CADDY_VERSION=${DOCKER_CADDY_VERSION}
+      - DOCKER_NODE_VERSION=${DOCKER_NODE_VERSION}
+      # Health Check Configuration
+      - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL}
+      - HEALTH_CHECK_TIMEOUT=${HEALTH_CHECK_TIMEOUT}
+      - HEALTH_CHECK_RETRIES=${HEALTH_CHECK_RETRIES}
+      - HEALTH_CHECK_START_PERIOD=${HEALTH_CHECK_START_PERIOD}
+      - HEALTH_CHECK_ENDPOINT=${HEALTH_CHECK_ENDPOINT}
+      # Logging Configuration
+      - LOG_FORMAT=${LOG_FORMAT}
+      - LOG_MAX_SIZE=${LOG_MAX_SIZE}
+      - LOG_MAX_FILES=${LOG_MAX_FILES}
+      - LOG_COMPRESS=${LOG_COMPRESS}
+      - LOG_ROTATE_DAILY=${LOG_ROTATE_DAILY}
+    ports:
+      - "${FRONTEND_HTTP_PORT}:80"
+      - "${FRONTEND_HTTPS_PORT}:443"
+    volumes:
+      - caddy_data:/data/caddy
+    depends_on:
+      - bff
+    networks:
+      - app-network
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bot-service:
+    build:
+      context: ./services/bot
+      dockerfile: Dockerfile
+    environment:
+      - BOT_SERVICE_PORT=${BOT_SERVICE_PORT}
+      - BOT_TOKEN=${BOT_TOKEN}
+      - TARGET_CHANNEL_ID=${TARGET_CHANNEL_ID}
+    ports:
+      - "${BOT_SERVICE_PORT}:${BOT_SERVICE_PORT}"
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BOT_SERVICE_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  caddy_data:
+    driver: local

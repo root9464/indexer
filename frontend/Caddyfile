@@ -1,0 +1,76 @@
+{$DOMAIN} {
+    # Автоматические SSL-сертификаты от Let's Encrypt
+    
+    # Включаем gzip сжатие
+    encode gzip
+    
+    # Безопасные заголовки
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Кэширование статических ресурсов
+        Cache-Control "public, max-age={$CADDY_CACHE_STATIC_MAX_AGE}" *.{js,css,png,jpg,jpeg,gif,ico,svg,woff,woff2}
+        Cache-Control "public, max-age={$CADDY_CACHE_HTML_MAX_AGE}" *.html
+    }
+    
+    # Защита от вредоносных URI
+    @malicious_uri path_regexp malicious "(;|&&|wget|curl|chmod|cd%20|/tmp|\.sh|\.exe|\.bin|eval|bash)"
+    respond @malicious_uri 403
+    
+    # Блокировка опасного endpoint'а
+    @device_rsp path /device.rsp
+    respond @device_rsp 403
+    
+    # API-прокси на BFF
+    handle /api/* {
+        reverse_proxy bff:{$BFF_PORT} {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Original-URI {uri}
+            header_up X-Original-Method {method}
+            
+            # Таймауты
+            transport http {
+                dial_timeout {$CADDY_PROXY_DIAL_TIMEOUT}
+                read_timeout {$CADDY_PROXY_TIMEOUT}
+                write_timeout {$CADDY_PROXY_TIMEOUT}
+            }
+        }
+    }
+    
+    # Health check endpoint
+    handle {$CADDY_HEALTH_CHECK_PATH} {
+        reverse_proxy bff:{$BFF_PORT} {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            
+            transport http {
+                dial_timeout 10s
+                read_timeout 20s
+                write_timeout 20s
+            }
+        }
+    }
+    
+    # SPA файлы с оптимизацией
+    handle {
+        root * /usr/share/caddy
+        file_server {
+            precompressed gzip
+        }
+        
+        # Fallback для SPA роутинга
+        try_files {path} /index.html
+    }
+}
+
+# Редирект с www
+www.{$DOMAIN} {
+    redir https://{$DOMAIN}{uri} permanent
+}

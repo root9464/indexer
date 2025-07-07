@@ -1,0 +1,23 @@
+services/gifts-service/main
+chart-service
+frontend/node_modules/
+load-testing
+
+# Environment files
+
+.env.local
+.env.production
+.env.development
+
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+database
