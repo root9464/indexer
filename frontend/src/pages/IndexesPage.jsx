@@ -453,6 +453,9 @@ const IndexesPage = () => {
   const [activeBalanceTab, setActiveBalanceTab] = useState('balance'); // 'balance', 'transactions', 'earn'
   const [activeTimeframe, setActiveTimeframe] = useState('All');
   const [activeTradeTab, setActiveTradeTab] = useState('buy');
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   // Данные индексов согласно референсу
@@ -538,6 +541,28 @@ const IndexesPage = () => {
   const totalWalletValue = 2435;
   const indexTokens = 2452.02;
 
+  const handleWalletConnect = () => {
+    if (walletConnected) {
+      // Показать меню вместо сразу отключения
+      setWalletMenuOpen(!walletMenuOpen);
+    } else {
+      // Подключение кошелька (здесь должна быть интеграция с TON Connect)
+      setWalletConnected(true);
+      setWalletAddress('UQBx...7Kv8'); // Мок адреса
+    }
+  };
+
+  const handleDisconnect = () => {
+    setWalletConnected(false);
+    setWalletAddress('');
+    setWalletMenuOpen(false);
+  };
+
+  const formatWalletAddress = (address) => {
+    if (!address) return '';
+    return `${address.slice(0, 2)}...${address.slice(-2)}`;
+  };
+
   if (loading) {
     return (
       <div className="relative min-h-screen bg-white">
@@ -553,21 +578,21 @@ const IndexesPage = () => {
   return (
     <div className="relative min-h-screen bg-white">
       <div className="overflow-y-auto pb-20 px-4 py-4" style={{height: '100vh'}}>
-        {/* User Info */}
-        <div className="flex justify-center mb-4">
-          <div className="inline-flex items-center border border-gray-300 rounded-2xl px-3 py-2 bg-white shadow-sm">
+        {/* User Info with TON Connect */}
+        <div className="flex justify-between items-center mb-4 gap-2">
+          <div className="inline-flex items-center justify-center border border-gray-300 rounded-2xl px-3 py-2 bg-white shadow-sm" style={{ width: 'calc(100% - 80px)' }}>
             {getUserPhoto() ? (
               <img 
                 src={getUserPhoto()} 
                 alt="User avatar"
-                className="w-5 h-5 rounded-full mr-2 object-cover"
+                className="w-5 h-5 rounded-full mr-2 object-cover flex-shrink-0"
                 onError={(e) => {
                   e.target.style.display = 'none';
                   e.target.nextSibling.style.display = 'flex';
                 }}
               />
             ) : (
-              <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mr-2">
+              <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
                 <span className="text-white text-xs font-bold">
                   {user?.first_name?.[0] || 'T'}
                 </span>
@@ -578,19 +603,94 @@ const IndexesPage = () => {
                 {user?.first_name?.[0] || 'T'}
               </span>
             </div>
-            <span className="text-gray-700 font-bold text-sm">
-              {getUsername() || 'Tand'} • 53212 TON • 
-            </span>
-            <span className="text-orange-500 font-bold text-sm"> 🎁 34</span>
+            <div className="flex items-center min-w-0 flex-1 overflow-hidden">
+              <span className="text-gray-700 font-bold text-sm whitespace-nowrap">
+                {getUsername() || 'Tand'}
+              </span>
+              <span className="text-gray-700 font-bold text-sm mx-1">•</span>
+              <span className="text-gray-700 font-bold text-sm whitespace-nowrap">53212 TON</span>
+              <span className="text-gray-700 font-bold text-sm mx-1">•</span>
+              <span className="text-orange-500 font-bold text-sm whitespace-nowrap">🎁 34</span>
+            </div>
+          </div>
+
+          {/* TON Connect Button with Menu */}
+          <div className="relative">
+            <button
+              onClick={handleWalletConnect}
+              className={`inline-flex items-center justify-center border rounded-2xl px-3 py-4 bg-white shadow-sm transition-colors ${
+                walletConnected 
+                  ? 'border-green-300 hover:border-green-400' 
+                  : 'border-blue-300 hover:border-blue-400'
+              }`}
+              style={{ width: '72px', minWidth: '72px', height: '38px' }}
+            >
+              {walletConnected ? (
+                <span className="text-green-700 font-bold text-xs whitespace-nowrap">
+                  {formatWalletAddress(walletAddress)}
+                </span>
+              ) : (
+                <svg 
+                  className="w-4 h-4 text-blue-700" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" 
+                  />
+                </svg>
+              )}
+            </button>
+
+            {/* Wallet Menu */}
+            {walletConnected && walletMenuOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setWalletMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-12 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-20 min-w-48">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <div className="text-sm font-medium text-gray-800">Wallet Connected</div>
+                    <div className="text-xs text-gray-500">{walletAddress}</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(walletAddress);
+                      setWalletMenuOpen(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy Address
+                  </button>
+                  <button
+                    onClick={handleDisconnect}
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Disconnect
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* One Token Card */}
-        <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-4 mb-4 text-white relative overflow-hidden" style={{ maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
+        <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-4 mb-4 text-white relative overflow-hidden mx-auto" style={{ maxWidth: '100%' }}>
           <div className="relative z-10">
             <div className="text-xl font-bold mb-1">One Token - All Telegram Gifts!</div>
             <div className="text-sm opacity-90 mb-4">Easy way to invest in Telegram assets market</div>
-            <button className="bg-white text-purple-700 font-bold py-2 px-6 rounded-full text-sm">
+            <button className="bg-white text-purple-700 font-bold py-2 px-6 rounded-full text-sm hover:bg-gray-100 transition-colors">
               Exchange Index Tokens
             </button>
           </div>
@@ -600,23 +700,23 @@ const IndexesPage = () => {
         </div>
 
         {/* Balance/Transactions/Earn Compact Blocks */}
-        <div className="bg-gray-100 rounded-xl p-0.5 mb-4 flex relative">
+        <div className="bg-gray-100 rounded-xl p-0.5 mb-4 flex">
           <button 
             onClick={() => setActiveBalanceTab('balance')}
-            className={`flex-1 py-1.5 px-2 text-center font-bold text-xs rounded-lg transition-all duration-200 ${
+            className={`flex-1 py-2 px-3 text-center font-bold text-xs rounded-lg transition-all duration-200 ${
               activeBalanceTab === 'balance'
                 ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             Balance
           </button>
           <button 
             onClick={() => setActiveBalanceTab('transactions')}
-            className={`flex-1 py-1.5 px-2 text-center font-bold text-xs rounded-lg transition-all duration-200 flex items-center justify-center gap-1 ${
+            className={`flex-1 py-2 px-3 text-center font-bold text-xs rounded-lg transition-all duration-200 flex items-center justify-center gap-1 ${
               activeBalanceTab === 'transactions'
                 ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             <span>Transactions</span>
@@ -626,10 +726,10 @@ const IndexesPage = () => {
           </button>
           <button 
             onClick={() => setActiveBalanceTab('earn')}
-            className={`flex-1 py-1.5 px-2 text-center font-bold text-xs rounded-lg transition-all duration-200 ${
+            className={`flex-1 py-2 px-3 text-center font-bold text-xs rounded-lg transition-all duration-200 ${
               activeBalanceTab === 'earn'
                 ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             Earn
@@ -641,20 +741,20 @@ const IndexesPage = () => {
           <>
             {/* Wallet Section */}
             <div className="text-center mb-6">
-              <div className="text-gray-500 text-sm mb-2 flex items-center justify-center gap-2 font-bold">
+              <div className="text-gray-500 text-sm mb-3 flex items-center justify-center gap-2 font-bold">
                 Wallet 
                 <div className="w-4 h-4 bg-gray-300 rounded-full flex items-center justify-center">
-                  <span className="text-xs text-white">?</span>
+                  <span className="text-xs text-white font-bold">?</span>
                 </div>
               </div>
-              <div className="flex items-center justify-center gap-4 mb-2">
-                <button className="w-8 h-8 border-2 border-blue-500 rounded-full flex items-center justify-center text-blue-500 font-black">
+              <div className="flex items-center justify-center gap-6 mb-3">
+                <button className="w-10 h-10 border-2 border-blue-500 rounded-full flex items-center justify-center text-blue-500 hover:bg-blue-50 transition-colors">
                   <span className="text-xl font-black">←</span>
                 </button>
                 <div className="text-4xl font-bold text-gray-800">
                   ${totalWalletValue.toLocaleString()}
                 </div>
-                <button className="w-8 h-8 border-2 border-blue-500 rounded-full flex items-center justify-center text-blue-500 font-black">
+                <button className="w-10 h-10 border-2 border-blue-500 rounded-full flex items-center justify-center text-blue-500 hover:bg-blue-50 transition-colors">
                   <span className="text-xl font-black">→</span>
                 </button>
               </div>
@@ -665,31 +765,31 @@ const IndexesPage = () => {
 
             {/* Indexes Section - только в balance */}
             <div className="mb-4">
-              <div className="text-gray-500 text-xs font-medium mb-3 px-1">INDEXES</div>
-              <div className="space-y-1">
+              <div className="text-gray-500 text-xs font-medium mb-3 px-1 uppercase tracking-wide">INDEXES</div>
+              <div className="space-y-2">
                 {indexesData.map((index) => (
                   <div 
                     key={index.id} 
-                    className="flex items-center justify-between py-3 px-3 cursor-pointer hover:bg-gray-50 rounded-lg transition-colors"
+                    className="flex items-center justify-between py-4 px-4 cursor-pointer hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-200"
                     onClick={() => {
                       setSelectedIndex(index);
                       setPopupOpen(true);
                     }}
                   >
-                    <div className="flex items-center">
+                    <div className="flex items-center flex-1 min-w-0">
                       <div 
-                        className="w-12 h-12 rounded-lg flex items-center justify-center mr-3"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center mr-4 flex-shrink-0"
                         style={{ backgroundColor: index.bgColor }}
                       >
-                        <span className="text-xl text-white">{index.icon}</span>
+                        <span className="text-xl">{index.icon}</span>
                       </div>
-                      <div>
-                        <div className="font-medium text-gray-900 text-base">{index.name}</div>
-                        <div className="text-sm text-gray-500">{index.mcap}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-gray-900 text-base leading-tight truncate">{index.name}</div>
+                        <div className="text-sm text-gray-500 mt-0.5">{index.mcap}</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-gray-900 text-lg">{index.price}</div>
+                    <div className="text-right flex-shrink-0 ml-4">
+                      <div className="text-gray-900 text-lg font-semibold">{index.price}</div>
                       <div className="text-green-500 text-sm font-medium">{index.change}</div>
                     </div>
                   </div>
@@ -699,27 +799,27 @@ const IndexesPage = () => {
           </>
         ) : activeBalanceTab === 'transactions' ? (
           /* Transactions Content */
-          <div className="text-center mb-6">
-            <div className="text-gray-500 text-sm mb-4">Recent Transactions</div>
+          <div className="mb-6">
+            <div className="text-gray-500 text-sm mb-4 text-center font-medium">Recent Transactions</div>
             <div className="space-y-3">
               {[
                 { type: 'Buy', amount: '+150.00', token: 'Market Cap Index', time: '2h ago' },
                 { type: 'Sell', amount: '-75.50', token: 'Black gifts index', time: '5h ago' },
                 { type: 'Buy', amount: '+200.00', token: 'Unique gifts index', time: '1d ago' }
               ].map((transaction, index) => (
-                <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                <div key={index} className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center flex-1 min-w-0">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${
                       transaction.type === 'Buy' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
                     }`}>
-                      <span className="text-xs font-bold">{transaction.type === 'Buy' ? '+' : '−'}</span>
+                      <span className="text-sm font-bold">{transaction.type === 'Buy' ? '+' : '−'}</span>
                     </div>
-                    <div>
-                      <div className="font-medium text-gray-900 text-sm">{transaction.token}</div>
-                      <div className="text-xs text-gray-500">{transaction.time}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-gray-900 text-sm truncate">{transaction.token}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{transaction.time}</div>
                     </div>
                   </div>
-                  <div className={`font-medium text-sm ${
+                  <div className={`font-semibold text-sm flex-shrink-0 ml-3 ${
                     transaction.type === 'Buy' ? 'text-green-600' : 'text-red-600'
                   }`}>
                     ${transaction.amount}
@@ -730,65 +830,65 @@ const IndexesPage = () => {
           </div>
         ) : (
           /* Earn Content */
-          <div className="text-center mb-6">
-            <div className="text-gray-500 text-sm mb-2 flex items-center justify-center gap-2 font-bold">
-              Wallet 
-              <div className="w-4 h-4 bg-gray-300 rounded-full flex items-center justify-center">
-                <span className="text-xs text-white">?</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-center gap-4 mb-2">
-              <div className="text-4xl font-bold text-gray-800">
-                ${totalWalletValue.toLocaleString()}
-              </div>
-            </div>
-            <div className="text-gray-500 text-sm mb-3 font-bold">
-              3453 Frens
-            </div>
-            
-            <div className="mb-3">
-              <div className="text-3xl font-black text-gray-800">
-                Invite friends and <span className="text-purple-500 font-black">earn</span>
-              </div>
-              <div className="text-4xl font-black text-blue-500">
-                50% comission!
-              </div>
-            </div>
-
-            {/* Stats Row */}
-            <div className="flex justify-between mb-4 px-5 text-center">
-              <div>
-                <div className="text-lg font-black text-gray-800">3453</div>
-                <div className="text-xs text-gray-500 font-bold">Frens</div>
-              </div>
-              <div>
-                <div className="text-lg font-black text-gray-800">$21234</div>
-                <div className="text-xs text-gray-500 font-bold">Earn</div>
-              </div>
-              <div>
-                <div className="text-lg font-black text-gray-800">$2233</div>
-                <div className="text-xs text-gray-500 font-bold">Withdraw</div>
-              </div>
-            </div>
-
-            {/* Invite Link */}
-            <div className="mb-6">
-              <div className="relative border-2 border-blue-500 rounded-xl p-3">
-                <label className="absolute -top-2 left-4 bg-white px-1 text-xs text-blue-500 font-medium">Invite Link</label>
-                <div className="text-sm text-blue-500 break-all font-medium">
-                  https://t.me/giftindexbot/i3d43123
+          <div className="mb-6">
+            <div className="text-center mb-6">
+              <div className="text-gray-500 text-sm mb-3 flex items-center justify-center gap-2 font-bold">
+                Wallet 
+                <div className="w-4 h-4 bg-gray-300 rounded-full flex items-center justify-center">
+                  <span className="text-xs text-white font-bold">?</span>
                 </div>
               </div>
-            </div>
+              <div className="text-4xl font-bold text-gray-800 mb-3">
+                ${totalWalletValue.toLocaleString()}
+              </div>
+              <div className="text-gray-500 text-sm mb-4 font-bold">
+                3453 Frens
+              </div>
+              
+              <div className="mb-6">
+                <div className="text-2xl font-black text-gray-800 leading-tight">
+                  Invite friends and <span className="text-purple-500 font-black">earn</span>
+                </div>
+                <div className="text-3xl font-black text-blue-500 mt-1">
+                  50% comission!
+                </div>
+              </div>
 
-            {/* Action Buttons */}
-            <div className="space-y-2">
-              <button className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors text-sm">
-                Share Link
-              </button>
-              <button className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors text-sm">
-                Withdraw
-              </button>
+              {/* Stats Row */}
+              <div className="flex justify-between mb-6 px-4">
+                <div className="text-center">
+                  <div className="text-xl font-black text-gray-800">3453</div>
+                  <div className="text-xs text-gray-500 font-bold mt-1">Frens</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-black text-gray-800">$21,234</div>
+                  <div className="text-xs text-gray-500 font-bold mt-1">Earn</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-black text-gray-800">$2,233</div>
+                  <div className="text-xs text-gray-500 font-bold mt-1">Withdraw</div>
+                </div>
+              </div>
+
+              {/* Invite Link */}
+              <div className="mb-6">
+                <div className="relative border-2 border-blue-500 rounded-xl p-4">
+                  <label className="absolute -top-2 left-4 bg-white px-2 text-xs text-blue-500 font-medium">Invite Link</label>
+                  <div className="text-sm text-blue-500 break-all font-medium">
+                    https://t.me/giftindexbot/i3d43123
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <button className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-600 transition-colors text-sm">
+                  Share Link
+                </button>
+                <button className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-600 transition-colors text-sm">
+                  Withdraw
+                </button>
+              </div>
             </div>
           </div>
         )}
