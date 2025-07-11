@@ -1,9 +1,17 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
+import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    NodeGlobalsPolyfillPlugin({
+      buffer: true,
+      process: true,
+    }),
+  ],
   server: {
     host: process.env.VITE_DEV_HOST === 'true' || true,
     port: parseInt(process.env.VITE_DEV_PORT) || 3000,
@@ -54,6 +62,18 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', 'recharts'],
-    exclude: []
+    exclude: [],
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+      plugins: [
+        NodeGlobalsPolyfillPlugin({
+          buffer: true,
+          process: true,
+        }),
+        NodeModulesPolyfillPlugin(),
+      ],
+    },
   }
 })
