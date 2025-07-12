@@ -6,7 +6,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import GiftIndexLogo from '../assets/Giftindex_logo.svg';
 import { useJettonWallet } from '../hooks/useJettonWallet';
 import { useTelegram } from '../hooks/useTelegram';
-import { makeAsk } from '../utils/ton/ton';
+import { makeAsk, makeBid } from '../utils/ton/ton';
 
 // Компонент иконки TON
 const TonIcon = ({ className = 'w-4 h-4' }) => (
@@ -26,17 +26,25 @@ const PopupIndexChart = ({ open, onClose, index, chartData, currentTonPrice = 3.
   const [activeTimeframe, setActiveTimeframe] = useState('All');
   const address = useTonAddress();
   const [tonConnectUI] = useTonConnectUI();
+  const [activeActionTab, setActiveActionTab] = useState('buy');
 
   const [tradeAmount, setTradeAmount] = useState(0);
 
   const { data: jettons } = useJettonWallet({ address: address });
 
-  const jettonWallet = jettons?.balances?.find((balance) => balance.jetton.symbol === 'TUSDT');
+  const tusdtJetton = jettons?.balances?.find((balance) => balance.jetton.symbol === 'TUSDT');
 
-  const jettonAddress = jettonWallet ? Address.parse(jettonWallet.wallet_address.address).toString() : null;
-  console.log(jettonAddress);
+  const jettonAddress = tusdtJetton ? Address.parse(tusdtJetton.wallet_address.address).toString() : null;
 
   const messageAsk = jettonAddress ? makeAsk(tradeAmount, jettonAddress) : null;
+
+  const soxJetton = jettons?.balances?.find((balance) => balance.jetton.symbol === 'TSOXO');
+
+  const soxJettonAddress = soxJetton ? Address.parse(soxJetton.wallet_address.address).toString() : null;
+
+  const messageBid = soxJettonAddress ? makeBid(tradeAmount, soxJettonAddress) : null;
+
+  const messageSell = activeActionTab === 'buy' ? messageAsk : messageBid;
 
   const timeframes = ['1D', '7D', '1М', '3М', 'All'];
 
@@ -262,8 +270,14 @@ const PopupIndexChart = ({ open, onClose, index, chartData, currentTonPrice = 3.
             <div className='space-y-3'>
               {/* Buy/Sell Toggle - уменьшенные контейнеры */}
               <div className='flex bg-gray-100 rounded-lg p-0.5'>
-                <button className='flex-1 bg-white shadow-sm rounded-md py-1.5 px-3 text-xs font-medium text-gray-800'>Buy index</button>
-                <button className='flex-1 py-1.5 px-3 text-xs font-medium text-gray-500 flex items-center justify-center gap-1'>
+                <button
+                  className='flex-1 bg-white shadow-sm rounded-md py-1.5 px-3 text-xs font-medium text-gray-800'
+                  onClick={() => setActiveActionTab('buy')}>
+                  Buy index
+                </button>
+                <button
+                  className='flex-1 py-1.5 px-3 text-xs font-medium text-gray-500 flex items-center justify-center gap-1'
+                  onClick={() => setActiveActionTab('sell')}>
                   Sell index
                   <div className='w-1.5 h-1.5 bg-blue-500 rounded-full'></div>
                 </button>
@@ -300,9 +314,12 @@ const PopupIndexChart = ({ open, onClose, index, chartData, currentTonPrice = 3.
               {/* Buy Button */}
               {address && (
                 <button
-                  onClick={() => tonConnectUI.sendTransaction(messageAsk)}
+                  onClick={() => {
+                    console.log(activeActionTab);
+                    tonConnectUI.sendTransaction(messageSell);
+                  }}
                   className='w-full bg-blue-500 text-white font-medium py-1.5 px-4 rounded-xl hover:bg-blue-600 transition-colors text-sm'>
-                  Buy for 4.24 USDT
+                  {activeActionTab === 'buy' ? 'Buy for 4.24 USDT' : 'Sell for 4.24 USDT'}
                 </button>
               )}
             </div>

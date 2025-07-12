@@ -30,7 +30,7 @@ const makeAsk = (amount, jetton_address) => {
   const msg_cell = beginCell()
     .storeUint(0xf8a7ea5, 32)
     .storeUint(BigInt(Math.floor(Date.now() / 1000)), 64)
-    .storeCoins(amount * Math.pow(10, 6))
+    .storeCoins(amount * Math.pow(10, 9))
     .storeAddress(Address.parse(ORDER_BOOK_ADDRESS))
     .storeUint(0, 2)
     .storeUint(0, 1)
@@ -54,4 +54,33 @@ const makeAsk = (amount, jetton_address) => {
   return message;
 };
 
-export { deployOrderBook, makeAsk };
+const makeBid = (amount, jetton_address) => {
+  const payload = beginCell().storeUint(0xbf4385, 32).storeUint(1, 16).endCell();
+  const msg_cell = beginCell()
+    .storeUint(0xf8a7ea5, 32)
+    .storeUint(BigInt(Math.floor(Date.now() / 1000)), 64)
+    .storeCoins(amount * Math.pow(10, 9))
+    .storeAddress(Address.parse(ORDER_BOOK_ADDRESS))
+    .storeUint(0, 2)
+    .storeUint(0, 1)
+    .storeCoins(toNano('0.1'))
+    .storeBit(1)
+    .storeRef(payload)
+    .endCell();
+
+  const message = {
+    validUntil: Math.round(Date.now() / 1000) + 60 * 5,
+    network: CHAIN.TESTNET,
+    messages: [
+      {
+        address: jetton_address,
+        amount: toNano('0.15').toString(),
+        payload: msg_cell.toBoc().toString('base64'),
+      },
+    ],
+  };
+
+  return message;
+};
+
+export { deployOrderBook, makeAsk, makeBid };
