@@ -1,5 +1,3 @@
-import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
-import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
@@ -15,7 +13,7 @@ export default defineConfig({
   server: {
     host: process.env.VITE_DEV_HOST === 'true' || true,
     port: parseInt(process.env.VITE_DEV_PORT) || 3000,
-    allowedHosts: process.env.VITE_ALLOWED_HOSTS 
+    allowedHosts: process.env.VITE_ALLOWED_HOSTS
       ? process.env.VITE_ALLOWED_HOSTS.split(',')
       : ['durov.online', 'localhost', '2c25-85-159-228-25.ngrok-free.app'],
     proxy: {
@@ -26,10 +24,10 @@ export default defineConfig({
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, X-Telegram-Init-Data, X-Telegram-Username, X-Telegram-User-ID'
-        }
-      }
-    }
+          'Access-Control-Allow-Headers': 'Content-Type, X-Telegram-Init-Data, X-Telegram-Username, X-Telegram-User-ID',
+        },
+      },
+    },
   },
   build: {
     outDir: process.env.VITE_BUILD_OUTDIR || 'dist',
@@ -41,27 +39,27 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           charts: ['recharts'],
-          router: ['react-router-dom']
+          router: ['react-router-dom'],
         },
         chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
-      }
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+      },
     },
     minify: process.env.VITE_BUILD_MINIFY === 'false' ? false : true,
-    target: process.env.VITE_BUILD_TARGET || 'es2015'
+    target: process.env.VITE_BUILD_TARGET || 'es2015',
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
     'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || '/api'),
-    'process.env.REACT_APP_API_BASE_URL': JSON.stringify(process.env.VITE_API_URL || '/api')
+    'process.env.REACT_APP_API_BASE_URL': JSON.stringify(process.env.VITE_API_URL || '/api'),
   },
   esbuild: {
     loader: 'jsx',
     include: /src\/.*\.[jt]sx?$/,
-    exclude: []
+    exclude: [],
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', 'recharts'],
     exclude: [],
-  }
-})
+  },
+});
