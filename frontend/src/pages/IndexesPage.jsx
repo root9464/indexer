@@ -1,10 +1,13 @@
-import { Address } from '@ton/core';
+import { Address, Cell, Dictionary } from '@ton/core';
 import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import GiftIndexLogo from '../assets/Giftindex_logo.svg';
+import { ORDER_BOOK_ADDRESS } from '../constants/adresses';
+import { asksBidsDictionaryValue } from '../helpers/parseOrderBook';
 import { useJettonWallet } from '../hooks/useJettonWallet';
+import { useOrderInfo } from '../hooks/useOrderInfo';
 import { useTelegram } from '../hooks/useTelegram';
 import { makeAsk, makeBid } from '../utils/ton/ton';
 
@@ -47,6 +50,20 @@ const PopupIndexChart = ({ open, onClose, index, chartData, currentTonPrice = 3.
   const messageSell = activeActionTab === 'buy' ? messageAsk : messageBid;
 
   const timeframes = ['1D', '7D', '1М', '3М', 'All'];
+
+  const { data: orderInfo } = useOrderInfo(ORDER_BOOK_ADDRESS);
+  const cellRaw = orderInfo?.stack && orderInfo?.stack[0] ? orderInfo?.stack[0].cell : undefined;
+  const cell = Cell.fromHex(cellRaw);
+
+  let pordersDict = Dictionary.loadDirect(Dictionary.Keys.Uint(16), asksBidsDictionaryValue, cell);
+  const orders = pordersDict.get(1);
+  console.log('-----------[ ASKS ]-----------');
+  console.log(orders?.asks.keys());
+  console.log(orders?.asks.values());
+
+  console.log('-----------[ BIDS ]-----------');
+  console.log(orders?.bids.keys());
+  console.log(orders?.bids.values());
 
   const formatDate = (dateStr) => {
     const date = new Date(dateStr);
@@ -268,7 +285,10 @@ const PopupIndexChart = ({ open, onClose, index, chartData, currentTonPrice = 3.
         <div className='px-5'>
           {activeTradeTab === 'trade' && (
             <div className='space-y-3'>
-              {/* Buy/Sell Toggle - уменьшенные контейнеры */}
+              <div className='flex items-center justify-between'>
+                <div className='text-xs text-gray-500 font-medium'>Bids • {orders?.bids.keys().length}</div>
+                <div className='text-xs text-gray-500 font-medium'>Asks • {orders?.asks.keys().length}</div>
+              </div>
               <div className='flex bg-gray-100 rounded-lg p-0.5'>
                 <button
                   className='flex-1 bg-white shadow-sm rounded-md py-1.5 px-3 text-xs font-medium text-gray-800'
