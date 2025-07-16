@@ -51,12 +51,20 @@ const PopupIndexChart = ({ open, onClose, index, chartData, currentTonPrice = 3.
 
   const timeframes = ['1D', '7D', '1М', '3М', 'All'];
 
-  const { data: orderInfo } = useOrderInfo(ORDER_BOOK_ADDRESS);
-  const cellRaw = orderInfo?.stack && orderInfo?.stack[0] ? orderInfo?.stack[0].cell : undefined;
-  const cell = Cell.fromHex(cellRaw);
+  const [orders, setOrders] = useState(null);
+  const { data: orderInfo, isSuccess: isOrderInfoSuccess } = useOrderInfo(ORDER_BOOK_ADDRESS);
+  useEffect(() => {
+    if (isOrderInfoSuccess && orderInfo) {
+      const cellRaw = orderInfo.stack[0].cell;
+      console.log(cellRaw);
+      const cell = Cell.fromHex(cellRaw);
+      const pordersDict = Dictionary.loadDirect(Dictionary.Keys.Uint(16), asksBidsDictionaryValue, cell);
+      const orders = pordersDict.get(1);
+      console.log(orders);
+      setOrders(orders);
+    }
+  }, [isOrderInfoSuccess, orderInfo]);
 
-  let pordersDict = Dictionary.loadDirect(Dictionary.Keys.Uint(16), asksBidsDictionaryValue, cell);
-  const orders = pordersDict.get(1);
   console.log('-----------[ ASKS ]-----------');
   console.log(orders?.asks.keys());
   console.log(orders?.asks.values());
@@ -285,10 +293,12 @@ const PopupIndexChart = ({ open, onClose, index, chartData, currentTonPrice = 3.
         <div className='px-5'>
           {activeTradeTab === 'trade' && (
             <div className='space-y-3'>
-              <div className='flex items-center justify-between'>
-                <div className='text-xs text-gray-500 font-medium'>Bids • {orders?.bids.keys().length}</div>
-                <div className='text-xs text-gray-500 font-medium'>Asks • {orders?.asks.keys().length}</div>
-              </div>
+              {orders && (
+                <div className='flex items-center justify-between'>
+                  <div className='text-xs text-gray-500 font-medium'>Bids • {orders.bids.keys().length}</div>
+                  <div className='text-xs text-gray-500 font-medium'>Asks • {orders.asks.keys().length}</div>
+                </div>
+              )}
               <div className='flex bg-gray-100 rounded-lg p-0.5'>
                 <button
                   className='flex-1 bg-white shadow-sm rounded-md py-1.5 px-3 text-xs font-medium text-gray-800'

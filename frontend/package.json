@@ -24,6 +24,7 @@
     "@ton/crypto": "^3.3.0",
     "@tonconnect/ui-react": "^2.2.0",
     "axios": "^1.10.0",
+    "buffer": "^6.0.3",
     "chart.js": "^4.4.9",
     "lottie-web": "^5.13.0",
     "react": "^19.1.0",
